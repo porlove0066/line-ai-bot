@@ -24,7 +24,7 @@ def ask_ai(message):
         "X-Title": "LINE AI Bot"
     }
     data = {
-        "model": "google/gemini-2.0-flash-exp:free",
+        "model": "openrouter/auto",
         "messages": [{"role": "user", "content": message}]
     }
     res = requests.post("https://openrouter.ai/api/v1/chat/completions",

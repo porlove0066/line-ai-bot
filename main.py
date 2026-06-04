@@ -5,19 +5,29 @@ import base64
 import json
 import os
 import requests
-from google import genai
 
 app = Flask(__name__)
 
 LINE_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
 LINE_SECRET = os.environ.get("LINE_CHANNEL_SECRET")
-GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
-
-client = genai.Client(api_key=GEMINI_KEY)
+OPENROUTER_KEY = os.environ.get("OPENROUTER_API_KEY")
 
 def verify_signature(body, signature):
     hash = hmac.new(LINE_SECRET.encode(), body.encode(), hashlib.sha256).digest()
     return base64.b64encode(hash).decode() == signature
+
+def ask_ai(message):
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_KEY}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "model": "meta-llama/llama-3.1-8b-instruct:free",
+        "messages": [{"role": "user", "content": message}]
+    }
+    res = requests.post("https://openrouter.ai/api/v1/chat/completions",
+                        headers=headers, json=data)
+    return res.json()["choices"][0]["message"]["content"]
 
 def reply_message(reply_token, text):
     headers = {
@@ -44,11 +54,8 @@ def webhook():
         if event.get("type") == "message" and event["message"].get("type") == "text":
             user_msg = event["message"]["text"]
             reply_token = event["replyToken"]
-            response = client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=user_msg
-            )
-            reply_message(reply_token, response.text)
+            ai_reply = ask_ai(user_msg)
+            reply_message(reply_token, ai_reply)
 
     return "OK", 200
 

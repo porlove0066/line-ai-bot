@@ -14,7 +14,7 @@ LINE_SECRET = os.environ.get("LINE_CHANNEL_SECRET")
 GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
 
 genai.configure(api_key=GEMINI_KEY)
-model = genai.GenerativeModel("gemini-1.5-flash")
+model = genai.GenerativeModel("gemini-2.0-flash")
 
 def verify_signature(body, signature):
     hash = hmac.new(LINE_SECRET.encode(), body.encode(), hashlib.sha256).digest()

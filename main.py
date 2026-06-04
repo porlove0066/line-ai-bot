@@ -5,7 +5,7 @@ import base64
 import json
 import os
 import requests
-import google.generativeai as genai
+from google import genai
 
 app = Flask(__name__)
 
@@ -13,8 +13,7 @@ LINE_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
 LINE_SECRET = os.environ.get("LINE_CHANNEL_SECRET")
 GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
 
-genai.configure(api_key=GEMINI_KEY)
-model = genai.GenerativeModel("gemini-2.0-flash")
+client = genai.Client(api_key=GEMINI_KEY)
 
 def verify_signature(body, signature):
     hash = hmac.new(LINE_SECRET.encode(), body.encode(), hashlib.sha256).digest()
@@ -45,7 +44,10 @@ def webhook():
         if event.get("type") == "message" and event["message"].get("type") == "text":
             user_msg = event["message"]["text"]
             reply_token = event["replyToken"]
-            response = model.generate_content(user_msg)
+            response = client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=user_msg
+            )
             reply_message(reply_token, response.text)
 
     return "OK", 200

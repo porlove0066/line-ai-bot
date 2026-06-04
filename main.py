@@ -1,50 +1,54 @@
 from flask import Flask, request, abort
-from linebot.v3 import WebhookHandler
-from linebot.v3.exceptions import InvalidSignatureError
-from linebot.v3.messaging import (
-    Configuration, ApiClient, MessagingApi,
-    ReplyMessageRequest, TextMessage
-)
-from linebot.v3.webhooks import MessageEvent, TextMessageContent
-import google.generativeai as genai
+import hashlib
+import hmac
+import base64
+import json
 import os
+import requests
+import google.generativeai as genai
 
 app = Flask(__name__)
 
-# Config
 LINE_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
 LINE_SECRET = os.environ.get("LINE_CHANNEL_SECRET")
 GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
 
-configuration = Configuration(access_token=LINE_TOKEN)
-handler = WebhookHandler(LINE_SECRET)
 genai.configure(api_key=GEMINI_KEY)
 model = genai.GenerativeModel("gemini-1.5-flash")
+
+def verify_signature(body, signature):
+    hash = hmac.new(LINE_SECRET.encode(), body.encode(), hashlib.sha256).digest()
+    return base64.b64encode(hash).decode() == signature
+
+def reply_message(reply_token, text):
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {LINE_TOKEN}"
+    }
+    data = {
+        "replyToken": reply_token,
+        "messages": [{"type": "text", "text": text}]
+    }
+    requests.post("https://api.line.me/v2/bot/message/reply",
+                  headers=headers, json=data)
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
     signature = request.headers.get("X-Line-Signature", "")
     body = request.get_data(as_text=True)
-    try:
-        handler.handle(body, signature)
-    except InvalidSignatureError:
+
+    if not verify_signature(body, signature):
         abort(400)
-    return "OK"
 
-@handler.add(MessageEvent, message=TextMessageContent)
-def handle_message(event):
-    user_msg = event.message.text
-    response = model.generate_content(user_msg)
-    reply = response.text
+    events = json.loads(body).get("events", [])
+    for event in events:
+        if event.get("type") == "message" and event["message"].get("type") == "text":
+            user_msg = event["message"]["text"]
+            reply_token = event["replyToken"]
+            response = model.generate_content(user_msg)
+            reply_message(reply_token, response.text)
 
-    with ApiClient(configuration) as api_client:
-        line_bot_api = MessagingApi(api_client)
-        line_bot_api.reply_message(
-            ReplyMessageRequest(
-                reply_token=event.reply_token,
-                messages=[TextMessage(text=reply)]
-            )
-        )
+    return "OK", 200
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

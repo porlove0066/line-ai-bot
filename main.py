@@ -19,7 +19,9 @@ def verify_signature(body, signature):
 def ask_ai(message):
     headers = {
         "Authorization": f"Bearer {OPENROUTER_KEY}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://line-ai-bot-b003.onrender.com",
+        "X-Title": "LINE AI Bot"
     }
     data = {
         "model": "meta-llama/llama-3.1-8b-instruct:free",
@@ -27,8 +29,11 @@ def ask_ai(message):
     }
     res = requests.post("https://openrouter.ai/api/v1/chat/completions",
                         headers=headers, json=data)
-    return res.json()["choices"][0]["message"]["content"]
-
+    result = res.json()
+    print("OpenRouter response:", result)
+    if "choices" in result:
+        return result["choices"][0]["message"]["content"]
+    return "ขออภัย ไม่สามารถตอบได้ในขณะนี้"
 def reply_message(reply_token, text):
     headers = {
         "Content-Type": "application/json",

@@ -68,7 +68,7 @@ def ask_ai_image(image_base64):
         "X-Title": "LINE AI Bot"
     }
     data = {
-        "model": "google/gemini-2.0-flash-001",
+        "model": "google/gemini-2.5-flash-preview",
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
             {
